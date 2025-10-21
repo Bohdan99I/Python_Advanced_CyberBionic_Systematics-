@@ -1,7 +1,7 @@
 """
 Скрипт для веб-скрапінгу сайту books.toscrape.com.
 Збирає інформацію про книги (назва, ціна, рейтинг, наявність)
-з перших 10 сторінок та зберігає її у форматі CSV.
+з перших 10 сторінок та зберігає її у формати CSV та Excel.
 """
 
 import csv
@@ -10,12 +10,14 @@ import time
 from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
+import pandas as pd
 
 MAX_PAGES_TO_SCRAPE = 10
 
 BASE_URL = "http://books.toscrape.com/"
 START_URL = "http://books.toscrape.com/catalogue/page-1.html"
-OUTPUT_FILE = "books_data.csv"
+OUTPUT_CSV_FILE = "books_data.csv"
+OUTPUT_EXCEL_FILE = "books_data.xlsx"
 
 RATING_MAP = {
     "One": "One",
@@ -29,7 +31,6 @@ RATING_MAP = {
 def fetch_html(url):
     """Виконує HTTP GET-запит і повертає HTML-контент."""
     try:
-        # Додаємо невелику затримку для ввічливості
         time.sleep(0.5)
 
         response = requests.get(url, timeout=10)
@@ -93,7 +94,7 @@ def parse_book_data(html_content):
             }
         )
 
-    # --- Навігація: пошук наступної сторінки ---
+    # --- Навігація: пошук наступної сторінки ---
     next_tag = soup.select_one("li.next > a")
     next_page_url = None
     if next_tag and "href" in next_tag.attrs:
@@ -102,21 +103,35 @@ def parse_book_data(html_content):
     return all_books_data, next_page_url
 
 
-def save_to_csv(data):
-    """Зберігає зібрані дані у CSV-файл."""
+def save_data(data):
+    """Зберігає зібрані дані у формати CSV та Excel."""
     if not data:
         print("Немає даних для збереження.")
         return
 
     fieldnames = ["Назва", "Ціна", "Рейтинг", "Наявність"]
 
-    with open(OUTPUT_FILE, "w", newline="", encoding="utf-8") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(data)
+    # 1. Збереження у CSV
+    try:
+        with open(OUTPUT_CSV_FILE, "w", newline="", encoding="utf-8") as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(data)
+        print(f"✅ Дані успішно збережено у файл CSV: {OUTPUT_CSV_FILE}")
+    except (IOError, OSError, csv.Error) as e:
+        print(f"❌ Помилка збереження CSV: {e}")
 
-    print(f"\n✅ Дані успішно збережено у файл: {OUTPUT_FILE}")
-    print(f"   Зібрано {len(data)} записів.")
+    # 2. Збереження у Excel
+    try:
+        df = pd.DataFrame(data, columns=fieldnames)
+
+        df.to_excel(OUTPUT_EXCEL_FILE, index=False, engine="openpyxl")
+        print(f"✅ Дані успішно збережено у файл Excel: {OUTPUT_EXCEL_FILE}")
+    except (IOError, OSError, ValueError) as e:
+        print(
+            f"❌ Помилка збереження Excel. Переконайтеся, що встановлено pandas та openpyxl: {e}"
+        )
+    print(f"   Зібрано загалом {len(data)} записів.")
 
 
 def main_scraper():
@@ -144,8 +159,10 @@ def main_scraper():
         current_url = next_url
 
     print(f"\nСкрапінг завершено. Зібрано дані з {page_count} сторінок.")
-    save_to_csv(all_scraped_data)
+    save_data(all_scraped_data)
 
 
 if __name__ == "__main__":
     main_scraper()
+
+    print("\nВиконання скрапінгу завершено. Дані збережені у файли.")
