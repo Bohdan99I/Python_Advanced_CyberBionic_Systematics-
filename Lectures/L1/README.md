@@ -1,4 +1,4 @@
-# functional_progrmming_2022_programm
+# functional_progrmming
 
 # Елементи функціонального програмування
 
